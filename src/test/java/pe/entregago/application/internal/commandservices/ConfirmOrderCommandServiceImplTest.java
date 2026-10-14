@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import pe.entregago.domain.model.BusinessRuleViolation;
 import pe.entregago.domain.model.aggregates.Merchant;
@@ -72,15 +73,18 @@ class ConfirmOrderCommandServiceImplTest {
     @Test void rejectedPaymentReleasesReservationAndDoesNotPersistConfirmedOrder() {
         givenEligibleMerchantAndProduct();
         when(pricing.quote(eq(MERCHANT), anyList(), isNull(), any(LocalDate.class))).thenReturn(price());
-        ReservationId reservationId=new ReservationId("R-1");
-        StockReservation reservation=new StockReservation(reservationId, java.util.Map.of(PRODUCT, 2), NOW);
-        when(reservations.reserveAll(any(), eq(command.items()), eq(NOW))).thenReturn(reservation);
+        when(reservations.reserveAll(any(), eq(command.items()), eq(NOW))).thenAnswer(invocation -> {
+            ReservationId generatedId=invocation.getArgument(0);
+            return new StockReservation(generatedId, java.util.Map.of(PRODUCT, 2), NOW);
+        });
         when(payments.authorize(any(), any(), any())).thenReturn(new PaymentAuthorization("DECLINED-1", false));
 
         assertThatThrownBy(() -> service.handle(command))
                 .isInstanceOfSatisfying(BusinessRuleViolation.class,
                         failure -> assertThat(failure.code()).isEqualTo(BusinessRuleCode.PAYMENT_NOT_AUTHORIZED));
-        verify(reservations).release(reservationId);
+        ArgumentCaptor<ReservationId> reservationIdCaptor=ArgumentCaptor.forClass(ReservationId.class);
+        verify(reservations).reserveAll(reservationIdCaptor.capture(), eq(command.items()), eq(NOW));
+        verify(reservations).release(reservationIdCaptor.getValue());
         verify(payments, never()).voidAuthorization(any());
         verify(orders, never()).save(any());
     }

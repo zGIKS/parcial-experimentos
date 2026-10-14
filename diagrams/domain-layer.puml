@@ -210,9 +210,15 @@ package "Order, pricing & payment" {
 }
 
 package "Repository ports" {
-  interface MerchantRepository { +findById(id): Optional<Merchant> }
-  interface CustomerAddressRepository { +findById(id): Optional<CustomerAddress> }
-  interface ProductRepository { +findById(id): Optional<Product> }
+  interface MerchantRepository {
+    +findById(id): Optional<Merchant>
+  }
+  interface CustomerAddressRepository {
+    +findById(id): Optional<CustomerAddress>
+  }
+  interface ProductRepository {
+    +findById(id): Optional<Product>
+  }
   interface CouponRepository {
     +findByCode(code): Optional<Coupon>
     +recordUse(code): void
@@ -237,7 +243,9 @@ package "Shared language" {
   class CouponCode <<value object>>
   class ReservationId <<value object>>
   class CoverageZoneId <<value object>>
-  class Quantity <<value object>> { -value: int }
+  class Quantity <<value object>> {
+    -value: int
+  }
   class Money <<value object>> {
     -amount: BigDecimal
     -currency: String

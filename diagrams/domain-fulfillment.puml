@@ -122,7 +122,9 @@ package "Shared terms" {
   class ProductId <<value object>>
   class CustomerId <<value object>>
   class OrderId <<value object>>
-  interface DomainEvent { +occurredAt(): Instant }
+  interface DomainEvent {
+    +occurredAt(): Instant
+  }
   class CoverageZoneId <<value object>>
   class GeoLocation <<value object>> {
     -latitude: double

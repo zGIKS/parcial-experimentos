@@ -103,13 +103,13 @@ Estas pruebas comprueban decisiones del negocio y sus efectos observables entre 
 
 ## Pregunta 3 — Feature, Scenarios, Data Tables & Examples (5 puntos de la rúbrica)
 
-El feature de [confirm-order.feature](src/test/resources/features/confirm-order.feature) cubre una confirmación con varios productos mediante Data Tables, un `Scenario Outline` con ejemplos de comercio cerrado, falta de stock, dirección fuera de cobertura y pago rechazado, y otro `Scenario Outline` para reglas de cupones (vigencia, mínimo, comercio y límite de usos). El feature prueba la misma capacidad de negocio que `ConfirmOrderCommandServiceImpl`.
+El feature en inglés [confirm-order.feature](src/test/resources/features/confirm-order.feature) y su versión en español [confirmar-pedido.feature](src/test/resources/features/confirmar-pedido.feature) cubren la confirmación con varios productos mediante Data Tables, ejemplos de comercio cerrado, falta de stock, dirección fuera de cobertura y pago rechazado, y reglas de cupones (vigencia, mínimo, comercio y límite de usos). Ambos prueban la misma capacidad de negocio que `ConfirmOrderCommandServiceImpl`.
 
 La política demostrativa usa costo de envío **S/ 4.00** e impuesto de prueba de **10 %** sobre subtotal menos descuento. El porcentaje solo es una regla del ejercicio, no una tasa tributaria normativa.
 
 ## Pregunta 4 — Step Definition Implementation (5 puntos de la rúbrica)
 
-[ConfirmOrderSteps.java](src/test/java/pe/entregago/interfaces/rest/steps/ConfirmOrderSteps.java) implementa los pasos Cucumber como pruebas de sistema de la API REST real con Rest Assured. Las definiciones preparan comercios, direcciones, productos, cupones y pago en los adaptadores de memoria; envían `POST /api/orders/confirm` y verifican HTTP, estado, precio, cupón y stock retenido. La configuración y el runner están en el mismo paquete.
+[ConfirmOrderSteps.java](src/test/java/pe/entregago/interfaces/rest/steps/ConfirmOrderSteps.java) implementa los pasos en inglés y español como pruebas de sistema de la API REST real con Rest Assured. Las definiciones preparan comercios, direcciones, productos, cupones y pago en los adaptadores de memoria; envían `POST /api/orders/confirm` y verifican HTTP, estado, precio, cupón y stock retenido. La política de precio de prueba permite cambiar envío e impuesto por escenario.
 
 El contrato de éxito devuelve HTTP **201**. Las reglas incumplidas se traducen a **409** (comercio cerrado, stock), **422** (fuera de cobertura) o **402** (pago no autorizado).
 
@@ -125,7 +125,7 @@ La rúbrica entrega 5 puntos por pregunta (20 en total). La calificación solici
 | 4. Step Definitions | **18/20** | 4.5/5 | Pasos implementados sobre REST real, validando efectos del negocio; no se ejecutaron en esta entrega. |
 | **Nota estimada del examen** | **18.25/20** | **18.25/20** | Promedio de las cuatro estimaciones. |
 
-Es una autoevaluación orientativa con base en la rúbrica proporcionada, no una nota oficial. El proyecto contiene código de prueba, pero no se ejecutó `mvn test` en este trabajo.
+Es una autoevaluación orientativa con base en la rúbrica proporcionada, no una nota oficial. El proyecto contiene código de prueba. En este entorno no se pudo ejecutar `mvn test`: no hay Java/Maven instalados y `nix-shell` no puede acceder al socket del daemon de Nix.
 
 ## Ejecución con Nix
 
