@@ -1,0 +1,463 @@
+@startuml
+title EntregaGo — modelo de dominio de pedidos y delivery
+skinparam classAttributeIconSize 0
+hide empty members
+left to right direction
+
+class Customer {
+  -id: String
+  -name: String
+  -email: String
+  +addAddress(address: Address): void
+  +createCart(): Cart
+  +rate(orderId: String, stars: int): Rating
+}
+class Address {
+  -id: String
+  -label: String
+  -latitude: double
+  -longitude: double
+  -zoneId: String
+  +isValid(): boolean
+}
+class AddressSnapshot {
+  -id: String
+  -customerId: String
+  -zoneId: String
+}
+class Merchant {
+  -id: String
+  -name: String
+  -preparationMinutes: int
+  -acceptanceDeadline: Instant
+  -active: boolean
+  +isOpen(at: Instant): boolean
+  +accept(orderId: String): void
+  +reject(orderId: String, reason: String): void
+}
+class MerchantSnapshot {
+  -id: String
+  -open: boolean
+  -zoneId: String
+}
+class OpeningHours {
+  -dayOfWeek: DayOfWeek
+  -opensAt: LocalTime
+  -closesAt: LocalTime
+  +contains(at: LocalDateTime): boolean
+}
+class CommissionPolicy {
+  -id: String
+  -rate: BigDecimal
+  -effectiveFrom: LocalDate
+  -effectiveUntil: LocalDate
+  +commissionFor(orderTotal: Money): Money
+  +isEffectiveOn(date: LocalDate): boolean
+}
+class Product {
+  -id: String
+  -name: String
+  -category: String
+  -unitPrice: Money
+  -onHand: int
+  -reserved: int
+  -available: boolean
+  +availableQuantity(): int
+  +reserve(quantity: int): void
+  +release(quantity: int): void
+  +changePrice(price: Money): void
+}
+class ProductSnapshot {
+  -id: String
+  -merchantId: String
+  -unitPrice: BigDecimal
+  -availableStock: int
+  -available: boolean
+}
+class ProductOption {
+  -id: String
+  -name: String
+  -additionalPrice: Money
+  -enabled: boolean
+  +enable(): void
+  +disable(): void
+}
+class Cart {
+  -id: String
+  -createdAt: Instant
+  +add(product: Product, quantity: int, notes: String): void
+  +remove(productId: String): void
+  +calculateQuote(): PriceBreakdown
+  +clear(): void
+}
+class CartItem {
+  -quantity: int
+  -notes: String
+  +changeQuantity(quantity: int): void
+  +subtotal(): Money
+}
+class Order {
+  -id: String
+  -status: OrderStatus
+  -createdAt: Instant
+  -confirmedAt: Instant
+  -cancellationReason: String
+  +confirm(payment: Payment): void
+  +acceptByMerchant(): void
+  +startPreparation(): void
+  +markReady(): void
+  +cancel(reason: String): void
+  +transitionTo(next: OrderStatus): void
+}
+class OrderItem {
+  -productId: String
+  -productName: String
+  -unitPrice: Money
+  -quantity: int
+  -notes: String
+  +subtotal(): Money
+}
+class PriceBreakdown {
+  -subtotal: Money
+  -discount: Money
+  -shipping: Money
+  -tax: Money
+  -total: Money
+  +calculateTotal(): Money
+}
+class StockReservation {
+  -id: String
+  -status: ReservationStatus
+  -createdAt: Instant
+  +reserve(lines: List<OrderItem>): void
+  +release(): void
+  +commit(): void
+}
+class Coupon {
+  -code: String
+  -validFrom: LocalDate
+  -validUntil: LocalDate
+  -minimumSubtotal: Money
+  -merchantId: String
+  -maximumUses: int
+  -usedCount: int
+  -discountType: DiscountType
+  -discountValue: BigDecimal
+  -maximumDiscount: Money
+  +isApplicable(order: Order, at: LocalDate): boolean
+  +calculateDiscount(subtotal: Money): Money
+  +recordUse(customerId: String): void
+}
+class Payment {
+  -id: String
+  -status: PaymentStatus
+  -amount: Money
+  -providerReference: String
+  -authorizedAt: Instant
+  +markAuthorized(reference: String): void
+  +markRejected(reason: String): void
+  +requestRefund(amount: Money): void
+}
+class Delivery {
+  -id: String
+  -status: DeliveryStatus
+  -assignedAt: Instant
+  -pickedUpAt: Instant
+  -deliveredAt: Instant
+  +assign(courier: Courier): void
+  +acceptAssignment(): void
+  +rejectAssignment(reason: String): void
+  +markPickedUp(location: GeoLocation): void
+  +markInTransit(location: GeoLocation): void
+  +complete(evidence: DeliveryEvidence): void
+  +reportIncident(incident: Incident): void
+}
+class Courier {
+  -id: String
+  -identityNumber: String
+  -vehicleType: String
+  -capacity: int
+  -maxConcurrentDeliveries: int
+  -available: boolean
+  +isEligible(order: Order, zone: CoverageZone): boolean
+  +accept(deliveryId: String): void
+  +reject(deliveryId: String, reason: String): void
+  +setAvailability(available: boolean): void
+}
+class CoverageZone {
+  -id: String
+  -name: String
+  -boundary: String
+  -enabled: boolean
+  +contains(location: GeoLocation): boolean
+}
+class DeliveryEvidence {
+  -id: String
+  -type: EvidenceType
+  -value: String
+  -capturedAt: Instant
+  -location: GeoLocation
+  +isValid(): boolean
+}
+class Incident {
+  -id: String
+  -reason: String
+  -reportedAt: Instant
+  -status: IncidentStatus
+  +openReview(): void
+  +resolve(resolution: String): void
+}
+class SubstitutionProposal {
+  -id: String
+  -originalProductId: String
+  -replacementProductId: String
+  -proposedAt: Instant
+  -status: ApprovalStatus
+  +approve(customerId: String): void
+  +reject(customerId: String): void
+}
+class StatusHistory {
+  -id: String
+  -fromStatus: String
+  -toStatus: String
+  -actorId: String
+  -occurredAt: Instant
+  -location: GeoLocation
+  +record(): void
+}
+class Rating {
+  -id: String
+  -stars: int
+  -comment: String
+  -createdAt: Instant
+  +isAllowed(order: Order): boolean
+}
+class PlatformAdmin {
+  -id: String
+  -name: String
+  +manageCoverage(zone: CoverageZone): void
+  +manageCoupon(coupon: Coupon): void
+  +manageCommission(policy: CommissionPolicy): void
+  +block(entityId: String, until: Instant, reason: String): void
+  +review(incident: Incident): void
+}
+class Money {
+  -amount: BigDecimal
+  -currency: String
+  +add(other: Money): Money
+  +subtract(other: Money): Money
+  +multiply(factor: BigDecimal): Money
+}
+class GeoLocation {
+  -latitude: double
+  -longitude: double
+  +distanceTo(other: GeoLocation): double
+}
+class MerchantAnalyticsService {
+  +sales(merchantId: String, from: LocalDate, to: LocalDate): SalesReport
+  +cancellations(merchantId: String, from: LocalDate, to: LocalDate): SalesReport
+  +preparationTimes(merchantId: String): SalesReport
+  +popularProducts(merchantId: String): SalesReport
+}
+class SalesReport {
+  -from: LocalDate
+  -to: LocalDate
+  -metrics: Map<String, BigDecimal>
+}
+class OrderConfirmationService {
+  -merchants: MerchantRepository
+  -addresses: AddressRepository
+  -catalog: ProductCatalog
+  -coverage: CoveragePolicy
+  -inventory: InventoryPort
+  -pricing: PricingService
+  -payments: PaymentGateway
+  -orders: OrderRepository
+  +confirm(command: OrderConfirmationCommand): OrderConfirmationResult
+}
+class OrderConfirmationCommand {
+  -customerId: String
+  -merchantId: String
+  -addressId: String
+  -paymentMethodId: String
+  -couponCode: String
+  -items: List<RequestedItem>
+}
+class OrderConfirmationResult {
+  -orderId: String
+  -status: OrderStatus
+  -pricing: PriceBreakdown
+  -items: List<RequestedItem>
+  -paymentReference: String
+}
+class RequestedItem {
+  -productId: String
+  -quantity: int
+}
+class PricingLine {
+  -productId: String
+  -unitPrice: BigDecimal
+  -quantity: int
+}
+class ReservationLine {
+  -productId: String
+  -quantity: int
+}
+class ReservationToken {
+  -id: String
+}
+class PaymentAuthorization {
+  -reference: String
+  -approved: boolean
+}
+class CancellationPolicy {
+  -fullRefundBeforePreparation: boolean
+  -postPreparationRefundRate: BigDecimal
+  +refundFor(order: Order): Money
+}
+class DeliveryAssignmentService {
+  -couriers: CourierRepository
+  +assign(order: Order): Delivery
+  +reassign(delivery: Delivery): Delivery
+}
+
+interface MerchantRepository {
+  +findMerchant(id: String): Optional<MerchantSnapshot>
+}
+interface AddressRepository {
+  +findAddress(id: String): Optional<AddressSnapshot>
+}
+interface ProductCatalog {
+  +findProduct(id: String): Optional<ProductSnapshot>
+}
+interface CoveragePolicy {
+  +covers(merchant: MerchantSnapshot, address: AddressSnapshot): boolean
+}
+interface InventoryPort {
+  +reserveAll(lines: List<ReservationLine>): ReservationToken
+  +release(reservation: ReservationToken): void
+}
+interface PricingService {
+  +quote(merchantId: String, lines: List<PricingLine>, couponCode: String): PriceBreakdown
+}
+interface PaymentGateway {
+  +authorize(methodId: String, amount: BigDecimal, orderId: String): PaymentAuthorization
+  +voidAuthorization(authorization: PaymentAuthorization): void
+}
+interface OrderRepository {
+  +saveConfirmed(order: OrderConfirmationResult): void
+}
+interface CourierRepository {
+  +findEligible(order: Order): List<Courier>
+}
+
+enum OrderStatus {
+  CREATED
+  CONFIRMED
+  ACCEPTED
+  IN_PREPARATION
+  READY_FOR_PICKUP
+  CANCELLED
+  REJECTED
+  DELIVERED
+  UNDER_REVIEW
+}
+enum DeliveryStatus {
+  ASSIGNED
+  PICKED_UP
+  IN_TRANSIT
+  DELIVERED
+  UNDER_REVIEW
+}
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  REJECTED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+enum ReservationStatus {
+  ACTIVE
+  RELEASED
+  COMMITTED
+}
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+enum EvidenceType {
+  VERIFICATION_CODE
+  PHOTO
+  DIGITAL_SIGNATURE
+}
+enum IncidentStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+}
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+Customer "1" o-- "1..*" Address
+Customer "1" -- "0..1" Cart
+Customer "1" -- "0..*" Order
+Cart "1" *-- "0..*" CartItem
+CartItem "*" --> "1" Product
+Merchant "1" *-- "0..*" Product
+Merchant "1" *-- "1..*" OpeningHours
+Merchant "1" --> "1" CommissionPolicy
+Product "1" *-- "0..*" ProductOption
+Merchant "1" -- "1..*" CoverageZone
+Courier "0..*" -- "1..*" CoverageZone
+Order "1" *-- "1..*" OrderItem
+Order "1" *-- "1" PriceBreakdown
+Order "1" *-- "1" StockReservation
+Order "*" --> "1" Merchant
+Order "*" --> "1" Address
+Order "1" --> "0..*" Payment
+Order "1" --> "0..1" Delivery
+Order "1" *-- "1..*" StatusHistory
+Order "0..1" --> "1" Coupon
+Coupon "1" -- "0..*" Order : redemptions
+Delivery "1" *-- "0..*" DeliveryEvidence
+Delivery "1" *-- "0..*" StatusHistory
+Delivery "*" --> "0..1" Courier
+Delivery "1" *-- "0..*" Incident
+Order "1" *-- "0..*" SubstitutionProposal
+Customer "1" -- "0..*" Rating
+Rating "*" --> "1" Order
+PlatformAdmin ..> CoverageZone : administra
+PlatformAdmin ..> Coupon : administra
+PlatformAdmin ..> Incident : revisa
+PlatformAdmin ..> CancellationPolicy : configura
+PlatformAdmin ..> CommissionPolicy : configura
+MerchantAnalyticsService ..> OrderRepository
+DeliveryAssignmentService ..> CourierRepository
+OrderConfirmationService ..> MerchantRepository
+OrderConfirmationService ..> AddressRepository
+OrderConfirmationService ..> ProductCatalog
+OrderConfirmationService ..> CoveragePolicy
+OrderConfirmationService ..> InventoryPort
+OrderConfirmationService ..> PricingService
+OrderConfirmationService ..> PaymentGateway
+OrderConfirmationService ..> OrderRepository
+OrderConfirmationResult "1" *-- "1" PriceBreakdown
+OrderConfirmationResult "1" *-- "1..*" RequestedItem
+Order --> OrderStatus
+Delivery --> DeliveryStatus
+Payment --> PaymentStatus
+StockReservation --> ReservationStatus
+Coupon --> DiscountType
+DeliveryEvidence --> EvidenceType
+Incident --> IncidentStatus
+SubstitutionProposal --> ApprovalStatus
+Address ..> GeoLocation
+CoverageZone ..> GeoLocation
+DeliveryEvidence ..> GeoLocation
+MerchantSnapshot ..> Merchant
+AddressSnapshot ..> Address
+ProductSnapshot ..> Product
+@enduml
