@@ -1,0 +1,64 @@
+@startuml
+title EntregaGo — Application layer / confirm order use case
+left to right direction
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam shadowing false
+
+package "pe.entregago.application" {
+  interface ConfirmOrderCommandService {
+    +handle(command): ConfirmOrderResult
+  }
+  class ConfirmOrderResult {
+    +orderId: OrderId
+    +status: OrderStatus
+    +price: PriceBreakdown
+    +lines: List<OrderLine>
+    +reservationId: ReservationId
+    +paymentReference: String
+  }
+  package "internal.commandservices" {
+    class ConfirmOrderCommandServiceImpl <<application service>> {
+      -merchants: MerchantRepository
+      -addresses: CustomerAddressRepository
+      -products: ProductRepository
+      -coupons: CouponRepository
+      -reservations: StockReservationRepository
+      -payments: PaymentGateway
+      -orders: OrderRepository
+      -pricing: OrderPricingPolicy
+      -clock: Clock
+      +handle(command): ConfirmOrderResult
+    }
+  }
+}
+class ConfirmOrderCommand {
+  +customerId: CustomerId
+  +merchantId: MerchantId
+  +addressId: AddressId
+  +paymentMethodId: PaymentMethodId
+  +couponCode: CouponCode
+  +items: List<RequestedItem>
+}
+interface MerchantRepository
+interface CustomerAddressRepository
+interface ProductRepository
+interface CouponRepository
+interface StockReservationRepository
+interface PaymentGateway
+interface OrderRepository
+interface OrderPricingPolicy
+class Order <<aggregate>>
+ConfirmOrderCommandServiceImpl ..|> ConfirmOrderCommandService
+ConfirmOrderCommandServiceImpl ..> ConfirmOrderCommand
+ConfirmOrderCommandServiceImpl ..> ConfirmOrderResult
+ConfirmOrderCommandServiceImpl ..> MerchantRepository
+ConfirmOrderCommandServiceImpl ..> CustomerAddressRepository
+ConfirmOrderCommandServiceImpl ..> ProductRepository
+ConfirmOrderCommandServiceImpl ..> CouponRepository
+ConfirmOrderCommandServiceImpl ..> StockReservationRepository
+ConfirmOrderCommandServiceImpl ..> PaymentGateway
+ConfirmOrderCommandServiceImpl ..> OrderRepository
+ConfirmOrderCommandServiceImpl ..> OrderPricingPolicy
+ConfirmOrderCommandServiceImpl ..> Order : creates and confirms
+@enduml

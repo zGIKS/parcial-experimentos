@@ -1,0 +1,147 @@
+@startuml
+title EntregaGo — Domain layer / delivery, fulfillment & governance
+left to right direction
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam linetype ortho
+
+package "Courier & delivery" {
+  class Courier <<entity>> {
+    -id: CourierId
+    -identityNumber: String
+    -vehicle: String
+    -loadCapacity: int
+    -maximumConcurrentDeliveries: int
+    -operatingZones: Set<CoverageZoneId>
+    -available: boolean
+    -activeDeliveries: int
+    +isEligible(zone, requiredCapacity): boolean
+    +reserveDelivery(zone, capacity): void
+    +completeDelivery(): void
+  }
+  class Delivery <<aggregate root>> {
+    -id: DeliveryId
+    -orderId: OrderId
+    -courierId: CourierId
+    -status: DeliveryStatus
+    -evidence: DeliveryEvidence
+    -history: List<DeliveryStatusHistory>
+    -incidents: List<Incident>
+    +markPickedUp(at, location): void
+    +markInTransit(at, location): void
+    +complete(evidence, at): void
+    +reportIncident(incident, at, location): void
+  }
+  class DeliveryEvidence <<entity>> {
+    -id: EvidenceId
+    -type: EvidenceType
+    -value: String
+    -capturedAt: Instant
+    -location: GeoLocation
+    +isValid(): boolean
+  }
+  class DeliveryStatusHistory <<entity>> {
+    -status: DeliveryStatus
+    -occurredAt: Instant
+    -location: GeoLocation
+  }
+  class Incident <<entity>> {
+    -id: IncidentId
+    -reason: String
+    -reportedAt: Instant
+    -status: IncidentStatus
+    +openReview(): void
+    +resolve(): void
+  }
+}
+package "Order decisions & governance" {
+  class SubstitutionProposal <<entity>> {
+    -originalProductId: ProductId
+    -replacementProductId: ProductId
+    -status: ApprovalStatus
+    -proposedAt: Instant
+    +approve(customerId): void
+    +reject(customerId): void
+  }
+  class Rating <<entity>> {
+    -id: RatingId
+    -customerId: CustomerId
+    -targetId: String
+    -stars: int
+    -comment: String
+    -createdAt: Instant
+    +isAllowedFor(order): boolean
+  }
+  class PlatformAdmin <<aggregate root>> {
+    -id: CustomerId
+    -fullName: String
+    +block(targetId, until, reason): TemporaryBlock
+  }
+  class TemporaryBlock <<value object>> {
+    -targetId: String
+    -until: Instant
+    -reason: String
+    -createdBy: CustomerId
+  }
+  class CancellationPolicy <<domain policy>> {
+    -refundAfterPreparationRate: BigDecimal
+    +refundFor(status, total): RefundType
+  }
+  class CommissionPolicy <<domain policy>> {
+    -rate: BigDecimal
+    -effectiveFrom / effectiveUntil: LocalDate
+    +commissionFor(total): Money
+    +isEffectiveOn(date): boolean
+  }
+  interface CourierRepository {
+    +findEligible(order, capacity): List<Courier>
+  }
+  interface DeliveryRepository {
+    +save(delivery): Delivery
+    +findById(id): Optional<Delivery>
+  }
+}
+package "Shared terms" {
+  class CourierId <<value object>>
+  class DeliveryId <<value object>>
+  class IncidentId <<value object>>
+  class EvidenceId <<value object>>
+  class RatingId <<value object>>
+  class ProductId <<value object>>
+  class CustomerId <<value object>>
+  class OrderId <<value object>>
+  class CoverageZoneId <<value object>>
+  class GeoLocation <<value object>> { -latitude: double; -longitude: double }
+  enum DeliveryStatus { ASSIGNED; PICKED_UP; IN_TRANSIT; DELIVERED; UNDER_REVIEW; CANCELLED }
+  enum EvidenceType { VERIFICATION_CODE; PHOTO; DIGITAL_SIGNATURE }
+  enum IncidentStatus { OPEN; IN_REVIEW; RESOLVED }
+  enum ApprovalStatus { PENDING; APPROVED; REJECTED }
+  enum RefundType { FULL; PARTIAL; NONE }
+}
+
+Delivery "*" --> "1" Courier
+Delivery "*" --> "1" OrderId
+Delivery "1" *-- "0..*" DeliveryStatusHistory
+Delivery "1" *-- "0..*" Incident
+Delivery "1" *-- "0..1" DeliveryEvidence
+Delivery --> DeliveryStatus
+DeliveryEvidence --> EvidenceType
+Incident --> IncidentStatus
+Courier "0..*" -- "1..*" CoverageZoneId
+CourierRepository ..> Courier
+DeliveryRepository ..> Delivery
+SubstitutionProposal "*" --> "1" ProductId : replaces
+SubstitutionProposal "*" --> "1" ProductId : proposed replacement
+SubstitutionProposal --> ApprovalStatus
+Rating "*" --> "1" OrderId
+Rating "*" --> "1" CustomerId
+PlatformAdmin ..> Incident : reviews
+PlatformAdmin ..> CoverageZoneId : manages coverage
+PlatformAdmin ..> CancellationPolicy : configures
+PlatformAdmin ..> CommissionPolicy : configures
+PlatformAdmin ..> TemporaryBlock : issues
+CancellationPolicy ..> RefundType
+DeliveryEvidence --> GeoLocation
+DeliveryStatusHistory --> GeoLocation
+@enduml

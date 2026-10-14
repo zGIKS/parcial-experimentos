@@ -1,0 +1,59 @@
+@startuml
+title EntregaGo — Infrastructure layer / in-memory adapters
+left to right direction
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam shadowing false
+
+package "pe.entregago.infrastructure.persistence.memory" {
+  class InMemoryMarketplaceAdapter <<repository adapter>> {
+    -merchants: Map<MerchantId, Merchant>
+    -addresses: Map<AddressId, CustomerAddress>
+    -products: Map<ProductId, Product>
+    -coupons: Map<CouponCode, Coupon>
+    -reservations: Map<ReservationId, StockReservation>
+    -orders: Map<OrderId, Order>
+    -couriers: Map<CourierId, Courier>
+    -deliveries: Map<DeliveryId, Delivery>
+    +findById(id): Optional<T>
+    +reserveAll(id, items, at): StockReservation
+    +release(id): void
+    +commit(id): void
+    +save(aggregate): aggregate
+  }
+}
+package "pe.entregago.infrastructure.payment" {
+  class InMemoryPaymentGateway <<payment adapter>> {
+    -rejectNext: AtomicBoolean
+    -voidCount: AtomicInteger
+    +authorize(methodId, amount, orderId): PaymentAuthorization
+    +voidAuthorization(authorization): void
+  }
+}
+package "pe.entregago.infrastructure" {
+  class MarketplaceConfiguration <<Spring configuration>> {
+    +clock(): Clock
+    +orderPricingPolicy(): OrderPricingPolicy
+  }
+}
+interface MerchantRepository
+interface CustomerAddressRepository
+interface ProductRepository
+interface CouponRepository
+interface StockReservationRepository
+interface OrderRepository
+interface CourierRepository
+interface DeliveryRepository
+interface PaymentGateway
+class StandardOrderPricingPolicy
+InMemoryMarketplaceAdapter ..|> MerchantRepository
+InMemoryMarketplaceAdapter ..|> CustomerAddressRepository
+InMemoryMarketplaceAdapter ..|> ProductRepository
+InMemoryMarketplaceAdapter ..|> CouponRepository
+InMemoryMarketplaceAdapter ..|> StockReservationRepository
+InMemoryMarketplaceAdapter ..|> OrderRepository
+InMemoryMarketplaceAdapter ..|> CourierRepository
+InMemoryMarketplaceAdapter ..|> DeliveryRepository
+InMemoryPaymentGateway ..|> PaymentGateway
+MarketplaceConfiguration ..> StandardOrderPricingPolicy : creates
+@enduml

@@ -1,0 +1,245 @@
+@startuml
+title EntregaGo — Domain layer / pedido, clientes y catálogo
+left to right direction
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam linetype ortho
+
+package "Customer & catalog" {
+  class Customer <<aggregate root>> {
+    -id: CustomerId
+    -fullName: String
+    -email: String
+    -addresses: List<CustomerAddress>
+    +addAddress(address): void
+  }
+  class CustomerAddress <<entity>> {
+    -id: AddressId
+    -customerId: CustomerId
+    -streetAddress: String
+    -zoneId: CoverageZoneId
+    -location: GeoLocation
+  }
+  class Cart <<aggregate root>> {
+    -customerId: CustomerId
+    -merchantId: MerchantId
+    -lines: Map<ProductId, CartLine>
+    +add(merchantId, productId, quantity, notes): void
+    +remove(productId): void
+  }
+  class CartLine <<entity>> {
+    -quantity: Quantity
+    -observations: String
+    +merge(other): CartLine
+  }
+  class Merchant <<aggregate root>> {
+    -id: MerchantId
+    -name: String
+    -coverageZones: Set<CoverageZoneId>
+    -openingHours: List<OpeningHours>
+    -preparationMinutes: int
+    -active: boolean
+    +isOpenAt(instant): boolean
+    +serves(zoneId): boolean
+  }
+  class OpeningHours <<value object>> {
+    -days: Set<DayOfWeek>
+    -opensAt: LocalTime
+    -closesAt: LocalTime
+    +contains(time): boolean
+  }
+  class Product <<entity>> {
+    -id: ProductId
+    -merchantId: MerchantId
+    -name: String
+    -category: String
+    -unitPrice: Money
+    -onHand: int
+    -reserved: int
+    -available: boolean
+    +availableQuantity(): int
+    +reserve(quantity): void
+    +release(quantity): void
+  }
+  class ProductOption <<value object>> {
+    -name: String
+    -additionalPrice: Money
+    -enabled: boolean
+  }
+  class CoverageZone <<entity>> {
+    -id: CoverageZoneId
+    -name: String
+    -boundary: coordinates
+    -enabled: boolean
+    +contains(location): boolean
+  }
+}
+
+package "Order, pricing & payment" {
+  class Order <<aggregate root>> {
+    -id: OrderId
+    -customerId: CustomerId
+    -merchantId: MerchantId
+    -deliveryAddressId: AddressId
+    -status: OrderStatus
+    -createdAt: Instant
+    -confirmedAt: Instant
+    -payment: PaymentAuthorization
+    -reservationId: ReservationId
+    +confirm(payment, reservation, at): void
+    +acceptByMerchant(): void
+    +startPreparation(): void
+    +markReadyForPickup(): void
+    +cancel(policy, reason, at): RefundType
+    +sendToReview(reason): void
+  }
+  class OrderLine <<entity>> {
+    -productId: ProductId
+    -productName: String
+    -unitPrice: Money
+    -quantity: Quantity
+    -observations: String
+    +subtotal(): Money
+  }
+  class PriceBreakdown <<value object>> {
+    -subtotal: Money
+    -discount: Money
+    -shipping: Money
+    -tax: Money
+    -total: Money
+    -appliedCouponCode: String
+  }
+  class Coupon <<entity>> {
+    -code: CouponCode
+    -validFrom / validUntil: LocalDate
+    -minimumSubtotal: Money
+    -applicableMerchant: MerchantId
+    -maximumUses / uses: int
+    -discountType: DiscountType
+    -discountValue: BigDecimal
+    -maximumDiscount: Money
+    +evaluate(merchant, subtotal, date): CouponDecision
+    +recordUse(): void
+  }
+  class StockReservation <<entity>> {
+    -id: ReservationId
+    -quantities: Map<ProductId, Integer>
+    -status: ReservationStatus
+    -reservedAt: Instant
+    +release(): void
+    +commit(): void
+  }
+  class CancellationPolicy <<domain policy>> {
+    -refundAfterPreparationRate: BigDecimal
+    +refundFor(status, total): RefundType
+  }
+  class CommissionPolicy <<domain policy>> {
+    -rate: BigDecimal
+    -effectiveFrom / effectiveUntil: LocalDate
+    +commissionFor(total): Money
+    +isEffectiveOn(date): boolean
+  }
+  class PaymentAuthorization <<value object>> {
+    -reference: String
+    -approved: boolean
+  }
+  interface PaymentGateway <<domain port>> {
+    +authorize(methodId, amount, orderId): PaymentAuthorization
+    +voidAuthorization(authorization): void
+  }
+  interface OrderPricingPolicy <<domain service>> {
+    +quote(merchantId, lines, coupon, date): PriceBreakdown
+  }
+}
+
+package "Repository ports" {
+  interface MerchantRepository { +findById(id): Optional<Merchant> }
+  interface CustomerAddressRepository { +findById(id): Optional<CustomerAddress> }
+  interface ProductRepository { +findById(id): Optional<Product> }
+  interface CouponRepository {
+    +findByCode(code): Optional<Coupon>
+    +recordUse(code): void
+  }
+  interface StockReservationRepository {
+    +reserveAll(id, items, at): StockReservation
+    +release(id): void
+    +commit(id): void
+  }
+  interface OrderRepository {
+    +save(order): Order
+    +findById(id): Optional<Order>
+  }
+}
+
+package "Shared language" {
+  class CustomerId <<value object>>
+  class MerchantId <<value object>>
+  class AddressId <<value object>>
+  class ProductId <<value object>>
+  class OrderId <<value object>>
+  class CouponCode <<value object>>
+  class ReservationId <<value object>>
+  class Quantity <<value object>> { -value: int }
+  class Money <<value object>> {
+    -amount: BigDecimal
+    -currency: String
+    +add(other): Money
+    +subtract(other): Money
+    +multiply(factor): Money
+  }
+  class GeoLocation <<value object>> { -latitude: double; -longitude: double }
+  class RequestedItem <<value object>> {
+    -productId: ProductId
+    -quantity: Quantity
+    -observations: String
+  }
+  enum OrderStatus {
+    CREATED
+    CONFIRMED
+    MERCHANT_ACCEPTED
+    IN_PREPARATION
+    READY_FOR_PICKUP
+    DELIVERED
+    CANCELLED
+    REJECTED
+    UNDER_REVIEW
+  }
+  enum ReservationStatus { ACTIVE; RELEASED; COMMITTED }
+  enum DiscountType { PERCENTAGE; FIXED_AMOUNT }
+  enum RefundType { FULL; PARTIAL; NONE }
+}
+
+Customer "1" *-- "0..*" CustomerAddress
+Customer "1" -- "0..1" Cart
+Cart "1" *-- "0..*" CartLine
+CartLine "*" --> "1" Product
+Merchant "1" -- "0..*" Product
+Merchant "1" *-- "1..*" OpeningHours
+Merchant "1" -- "1..*" CoverageZone
+Product "1" *-- "0..*" ProductOption
+Order "1" *-- "1..*" OrderLine
+Order "1" *-- "1" PriceBreakdown
+Order "*" --> "1" CustomerId
+Order "*" --> "1" MerchantId
+Order "*" --> "1" AddressId
+Order "0..*" --> "0..1" Coupon
+Order "1" --> "1" StockReservation
+Order "1" *-- "1" PaymentAuthorization
+Order --> OrderStatus
+Coupon --> DiscountType
+StockReservation --> ReservationStatus
+OrderLine --> Money
+OrderLine --> Quantity
+CustomerAddress --> GeoLocation
+CoverageZone --> GeoLocation
+OrderRepository ..> Order
+MerchantRepository ..> Merchant
+CustomerAddressRepository ..> CustomerAddress
+ProductRepository ..> Product
+CouponRepository ..> Coupon
+StockReservationRepository ..> StockReservation
+OrderPricingPolicy ..> PriceBreakdown
+OrderPricingPolicy ..> Coupon
+PaymentGateway ..> PaymentAuthorization
+@enduml

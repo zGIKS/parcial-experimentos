@@ -1,0 +1,52 @@
+@startuml
+title EntregaGo — Interface layer / REST
+left to right direction
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam shadowing false
+
+package "pe.entregago.interfaces.rest" {
+  class OrderController <<REST controller>> {
+    -confirmOrder: ConfirmOrderCommandService
+    +confirm(request): OrderConfirmationResource
+  }
+  class ConfirmOrderRequest <<request resource>> {
+    -customerId: String
+    -merchantId: String
+    -addressId: String
+    -paymentMethodId: String
+    -couponCode: String
+    -items: List<ItemResource>
+    +toCommand(): ConfirmOrderCommand
+  }
+  class ItemResource <<request DTO>> {
+    -productId: String
+    -quantity: int
+    -observations: String
+  }
+  class OrderConfirmationResource <<response resource>> {
+    -orderId: String
+    -status: String
+    -reservationId: String
+    -paymentReference: String
+    -subtotal / discount / shipping / tax / total: String
+    +from(result): OrderConfirmationResource
+  }
+  class BusinessRuleExceptionHandler <<REST advice>> {
+    +handle(failure): ResponseEntity<ApiErrorResource>
+  }
+  class ApiErrorResource <<response resource>> {
+    -code: String
+    -message: String
+  }
+}
+interface ConfirmOrderCommandService
+class ConfirmOrderCommand
+class ConfirmOrderResult
+OrderController --> ConfirmOrderRequest : receives JSON
+OrderController --> ConfirmOrderCommandService : invokes
+OrderController --> OrderConfirmationResource : returns HTTP 201
+ConfirmOrderRequest ..> ConfirmOrderCommand : translates
+OrderConfirmationResource ..> ConfirmOrderResult : maps
+BusinessRuleExceptionHandler ..> ApiErrorResource : maps domain errors
+@enduml
