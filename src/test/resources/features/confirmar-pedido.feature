@@ -7,17 +7,17 @@ Característica: Confirmar un pedido de EntregaGo
   Escenario: Pedido confirmado con condiciones comerciales aprobadas
     Dado el comercio "M-01" está "abierto"
     Y la dirección "A-01" del cliente "C-01" tiene cobertura "dentro" respecto del comercio
-    Y la política de precios aplica envío de 4.00 PEN e impuesto de 10 por ciento
+    Y la política de precios aplica envío de "4.00" PEN e impuesto de 10 por ciento
     Y el catálogo contiene estos productos:
       | producto | nombre       | categoría | precio | stock | cantidad solicitada |
       | P-01     | Hamburguesa  | Comida    | 20.00  | 5     | 1                   |
-    Y el cupón "SAVE10" ofrece 10 por ciento con máximo de 5.00 PEN
+    Y el cupón "SAVE10" ofrece 10 por ciento con máximo de "5.00" PEN
     Y el medio de pago "TARJETA" responde "APROBADO"
     Cuando el cliente "C-01" confirma el pedido en el comercio "M-01" para la dirección "A-01"
     Entonces la API responde con HTTP 201
     Y el pedido queda en estado "CONFIRMED"
-    Y el descuento calculado es 2.00 PEN
-    Y el total calculado es 23.80 PEN
+    Y el descuento calculado es "2.00" PEN
+    Y el total calculado es "23.80" PEN
     Y la reserva de "P-01" es 1 unidades
 
   Esquema del escenario: El pedido se rechaza si falla una regla de confirmación
@@ -46,7 +46,7 @@ Característica: Confirmar un pedido de EntregaGo
     Cuando el cliente "C-01" confirma el pedido en el comercio "M-01" para la dirección "A-01"
     Entonces la API responde con HTTP 201
     Y el pedido queda en estado "CONFIRMED"
-    Y el descuento calculado es <descuento> PEN
+    Y el descuento calculado es "<descuento>" PEN
     Y el motivo de rechazo del cupón es "<motivo>"
 
     Ejemplos:

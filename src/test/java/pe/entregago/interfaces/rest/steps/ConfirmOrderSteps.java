@@ -171,9 +171,9 @@ public class ConfirmOrderSteps {
                 new GeoLocation(-12.04, -77.03)));
     }
 
-    @Given("la política de precios aplica envío de {double} PEN e impuesto de {int} por ciento")
-    public void configurarPrecios(Double costoEnvio, Integer porcentajeImpuesto) {
-        pricing.configure(BigDecimal.valueOf(costoEnvio).setScale(2).toPlainString(),
+    @Given("la política de precios aplica envío de {string} PEN e impuesto de {int} por ciento")
+    public void configurarPrecios(String costoEnvio, Integer porcentajeImpuesto) {
+        pricing.configure(costoEnvio,
                 BigDecimal.valueOf(porcentajeImpuesto).movePointLeft(2));
     }
 
@@ -203,10 +203,10 @@ public class ConfirmOrderSteps {
         requestedItems.add(item(productId, quantity, ""));
     }
 
-    @Given("el cupón {string} ofrece {int} por ciento con máximo de {double} PEN")
-    public void configurarOfertaCupon(String code, Integer percent, Double maximumDiscount) {
+    @Given("el cupón {string} ofrece {int} por ciento con máximo de {string} PEN")
+    public void configurarOfertaCupon(String code, Integer percent, String maximumDiscount) {
         couponPercent = BigDecimal.valueOf(percent);
-        couponMaximumDiscount = Money.soles(BigDecimal.valueOf(maximumDiscount));
+        couponMaximumDiscount = Money.soles(new BigDecimal(maximumDiscount));
         putCoupon(code, "VIGENTE");
     }
 
@@ -245,16 +245,16 @@ public class ConfirmOrderSteps {
         assertThat(response.jsonPath().getString("status")).isEqualTo(expectedStatus);
     }
 
-    @Then("el descuento calculado es {double} PEN")
-    public void verificarDescuento(Double expectedDiscount) {
+    @Then("el descuento calculado es {string} PEN")
+    public void verificarDescuento(String expectedDiscount) {
         assertThat(new BigDecimal(response.jsonPath().getString("discount")))
-                .isEqualByComparingTo(BigDecimal.valueOf(expectedDiscount));
+                .isEqualByComparingTo(new BigDecimal(expectedDiscount));
     }
 
-    @Then("el total calculado es {double} PEN")
-    public void verificarTotal(Double expectedTotal) {
+    @Then("el total calculado es {string} PEN")
+    public void verificarTotal(String expectedTotal) {
         assertThat(new BigDecimal(response.jsonPath().getString("total")))
-                .isEqualByComparingTo(BigDecimal.valueOf(expectedTotal));
+                .isEqualByComparingTo(new BigDecimal(expectedTotal));
     }
 
     @Then("la reserva de {string} es {int} unidades")
