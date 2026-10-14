@@ -23,6 +23,7 @@
              org.junit.platform.engine.support.discovery.DiscoveryIssueReporter; cucumber-junit-platform-engine
              7.33.0 la requiere, por lo que el runner de Cucumber no logra descubrir los escenarios. -->
         <junit-jupiter.version>5.13.4</junit-jupiter.version>
+        <junit-platform.version>1.13.4</junit-platform.version>
         <cucumber.version>7.33.0</cucumber.version>
         <springdoc.version>2.8.17</springdoc.version>
     </properties>

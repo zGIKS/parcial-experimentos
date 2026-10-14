@@ -25,11 +25,15 @@ package "Courier & delivery" {
     -orderId: OrderId
     -courierId: CourierId
     -status: DeliveryStatus
+    -assignmentAccepted: boolean
     -evidence: DeliveryEvidence
     -history: List<DeliveryStatusHistory>
     -incidents: List<Incident>
     +markPickedUp(at, location): void
+    +acceptAssignment(at, location): void
+    +rejectAssignment(at, location): void
     +markInTransit(at, location): void
+    +reassign(courierId, at, location): void
     +complete(evidence, at): void
     +reportIncident(incident, at, location): void
   }
@@ -54,11 +58,18 @@ package "Courier & delivery" {
     +openReview(): void
     +resolve(): void
   }
+  class DeliveryStatusChanged <<domain event>> {
+    -deliveryId: DeliveryId
+    -status: DeliveryStatus
+    -occurredAt: Instant
+    -location: GeoLocation
+  }
 }
 package "Order decisions & governance" {
   class SubstitutionProposal <<entity>> {
     -originalProductId: ProductId
     -replacementProductId: ProductId
+    -customerId: CustomerId
     -status: ApprovalStatus
     -proposedAt: Instant
     +approve(customerId): void
@@ -111,13 +122,40 @@ package "Shared terms" {
   class ProductId <<value object>>
   class CustomerId <<value object>>
   class OrderId <<value object>>
+  interface DomainEvent { +occurredAt(): Instant }
   class CoverageZoneId <<value object>>
-  class GeoLocation <<value object>> { -latitude: double; -longitude: double }
-  enum DeliveryStatus { ASSIGNED; PICKED_UP; IN_TRANSIT; DELIVERED; UNDER_REVIEW; CANCELLED }
-  enum EvidenceType { VERIFICATION_CODE; PHOTO; DIGITAL_SIGNATURE }
-  enum IncidentStatus { OPEN; IN_REVIEW; RESOLVED }
-  enum ApprovalStatus { PENDING; APPROVED; REJECTED }
-  enum RefundType { FULL; PARTIAL; NONE }
+  class GeoLocation <<value object>> {
+    -latitude: double
+    -longitude: double
+  }
+  enum DeliveryStatus {
+    ASSIGNED
+    PICKED_UP
+    IN_TRANSIT
+    DELIVERED
+    UNDER_REVIEW
+    CANCELLED
+  }
+  enum EvidenceType {
+    VERIFICATION_CODE
+    PHOTO
+    DIGITAL_SIGNATURE
+  }
+  enum IncidentStatus {
+    OPEN
+    IN_REVIEW
+    RESOLVED
+  }
+  enum ApprovalStatus {
+    PENDING
+    APPROVED
+    REJECTED
+  }
+  enum RefundType {
+    FULL
+    PARTIAL
+    NONE
+  }
 }
 
 Delivery "*" --> "1" Courier
@@ -144,4 +182,5 @@ PlatformAdmin ..> TemporaryBlock : issues
 CancellationPolicy ..> RefundType
 DeliveryEvidence --> GeoLocation
 DeliveryStatusHistory --> GeoLocation
+DeliveryStatusChanged ..|> DomainEvent
 @enduml

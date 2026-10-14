@@ -9,7 +9,6 @@ import pe.entregago.domain.model.BusinessRuleViolation;
 import pe.entregago.domain.model.aggregates.Merchant;
 import pe.entregago.domain.model.entities.*;
 import pe.entregago.domain.model.enums.BusinessRuleCode;
-import pe.entregago.domain.model.enums.OrderStatus;
 import pe.entregago.domain.model.commands.ConfirmOrderCommand;
 import pe.entregago.domain.model.valueobjects.*;
 import pe.entregago.domain.repositories.*;
@@ -18,8 +17,8 @@ import java.time.*;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -51,9 +50,9 @@ class ConfirmOrderCommandServiceImplTest {
     @Test void closedMerchantPreventsReservationAndPaymentAuthorization() {
         when(merchants.findById(MERCHANT)).thenReturn(Optional.of(merchant(false, Set.of(ZONE))));
 
-        BusinessRuleViolation failure=assertThrows(BusinessRuleViolation.class, () -> service.handle(command));
-
-        assertEquals(BusinessRuleCode.MERCHANT_CLOSED, failure.code());
+        assertThatThrownBy(() -> service.handle(command))
+                .isInstanceOfSatisfying(BusinessRuleViolation.class,
+                        failure -> assertThat(failure.code()).isEqualTo(BusinessRuleCode.MERCHANT_CLOSED));
         verifyNoInteractions(addresses, products, coupons, reservations, payments, orders, pricing);
     }
 
@@ -63,9 +62,9 @@ class ConfirmOrderCommandServiceImplTest {
         when(reservations.reserveAll(any(), eq(command.items()), eq(NOW)))
                 .thenThrow(new BusinessRuleViolation(BusinessRuleCode.INSUFFICIENT_STOCK, "insufficient stock"));
 
-        BusinessRuleViolation failure=assertThrows(BusinessRuleViolation.class, () -> service.handle(command));
-
-        assertEquals(BusinessRuleCode.INSUFFICIENT_STOCK, failure.code());
+        assertThatThrownBy(() -> service.handle(command))
+                .isInstanceOfSatisfying(BusinessRuleViolation.class,
+                        failure -> assertThat(failure.code()).isEqualTo(BusinessRuleCode.INSUFFICIENT_STOCK));
         verify(payments, never()).authorize(any(), any(), any());
         verify(orders, never()).save(any());
     }
@@ -78,9 +77,9 @@ class ConfirmOrderCommandServiceImplTest {
         when(reservations.reserveAll(any(), eq(command.items()), eq(NOW))).thenReturn(reservation);
         when(payments.authorize(any(), any(), any())).thenReturn(new PaymentAuthorization("DECLINED-1", false));
 
-        BusinessRuleViolation failure=assertThrows(BusinessRuleViolation.class, () -> service.handle(command));
-
-        assertEquals(BusinessRuleCode.PAYMENT_NOT_AUTHORIZED, failure.code());
+        assertThatThrownBy(() -> service.handle(command))
+                .isInstanceOfSatisfying(BusinessRuleViolation.class,
+                        failure -> assertThat(failure.code()).isEqualTo(BusinessRuleCode.PAYMENT_NOT_AUTHORIZED));
         verify(reservations).release(reservationId);
         verify(payments, never()).voidAuthorization(any());
         verify(orders, never()).save(any());

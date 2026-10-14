@@ -31,6 +31,7 @@ Esta solución desarrolla el bounded context **Order Fulfillment** de EntregaGo.
 | **Substitution proposal (propuesta de sustitución)** | Producto alternativo que no se acepta hasta que el cliente lo apruebe expresamente. |
 | **Cancellation policy (política de cancelación)** | Regla que define devolución total, parcial o ninguna según el estado alcanzado por el pedido. |
 | **Commission policy (política de comisión)** | Porcentaje vigente aplicado a las ventas del comercio. |
+| **Sales report (reporte de ventas)** | Resumen por periodo de ventas, cancelaciones, tiempo promedio de preparación y productos más solicitados. |
 | **Platform admin (administrador)** | Actor que configura cobertura, cupones, comisiones, bloqueos e investigación de incidencias. |
 
 ## 4.2 Diccionario de clases por capa
@@ -44,6 +45,7 @@ Esta solución desarrolla el bounded context **Order Fulfillment** de EntregaGo.
 | `StockReservation` | Domain | ID, cantidades retenidas, instante y estado. | `release`, `commit` | La crea `StockReservationRepository`; el pedido guarda su ID. |
 | `Delivery`, `Courier`, `Incident`, `DeliveryEvidence` | Domain | Estados de entrega, capacidad/zona, causa de revisión y evidencia capturada. | `markPickedUp`, `markInTransit`, `complete`, `reportIncident`, `isEligible` | Entrega vincula pedido y repartidor; mantiene historial e incidencias. |
 | `OrderPricingPolicy` | Domain | Servicio de dominio para calcular subtotal, descuento, envío, impuesto y total. | `quote` | Usa líneas y, si aplica, `Coupon`; es independiente de Spring. |
+| `MerchantAnalyticsService` | Domain | Resume actividad del comercio a partir de pedidos del periodo. | `summarize` | Produce un `SalesReport` con ventas, cancelaciones, tiempos de preparación y productos populares. |
 | `*Repository`, `PaymentGateway` | Domain | Puertos de lectura/escritura de agregados, reservas y autorización externa. | `findById`, `save`, `reserveAll`, `release`, `authorize` | Contratos implementados en Infrastructure. |
 | `OrderController` | Interface | Entrada HTTP `POST /api/orders/confirm`; convierte JSON y retorna resultado. | `confirm` | Traduce `ConfirmOrderRequest` a comando de aplicación. |
 | `ConfirmOrderRequest`, `OrderConfirmationResource` | Interface | Recursos REST de entrada y salida. | `toCommand`, `from` | No contienen reglas de negocio ni persistencia. |
@@ -66,6 +68,14 @@ Los diagramas se separan para que puedan leerse sin comprimir todas las clases e
 6. **Infrastructure — adaptadores en memoria:** [diagrams/infrastructure-layer.puml](diagrams/infrastructure-layer.puml)
 
 La dependencia de ejecución sigue `Interface → Application → Domain`. Infrastructure implementa puertos que define Domain. Domain no importa Spring, HTTP, JPA ni detalles de almacenamiento.
+
+```text
+pe.entregago/
+├── domain/          # agregados, entidades, VOs, reglas, eventos y puertos
+├── interfaces/rest/ # controladores, recursos y manejo de errores HTTP
+├── application/     # command service que coordina el caso de uso
+└── infrastructure/  # adaptadores en memoria, pago y configuración Spring
+```
 
 ## Pregunta 1 — UML Class Diagram (5 puntos de la rúbrica)
 

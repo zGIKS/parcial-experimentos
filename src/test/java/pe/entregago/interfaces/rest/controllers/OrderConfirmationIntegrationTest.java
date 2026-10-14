@@ -7,6 +7,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import pe.entregago.domain.model.aggregates.Merchant;
 import pe.entregago.domain.model.entities.CustomerAddress;
 import pe.entregago.domain.model.entities.OpeningHours;
@@ -18,14 +20,14 @@ import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Set;
-import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 class OrderConfirmationIntegrationTest {
     @Autowired MockMvc mvc;
+    @Autowired ObjectMapper objectMapper;
     @Autowired InMemoryMarketplaceAdapter marketplace;
     @Autowired InMemoryPaymentGateway paymentGateway;
     private static final MerchantId MERCHANT=new MerchantId("M-1");
@@ -50,15 +52,16 @@ class OrderConfirmationIntegrationTest {
                           {"productId":"P-2","quantity":1,"observations":""}]}
                 """;
 
-        mvc.perform(post("/api/orders/confirm").contentType(MediaType.APPLICATION_JSON).content(request))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status", is("CONFIRMED")))
-                .andExpect(jsonPath("$.subtotal", is("25.00")))
-                .andExpect(jsonPath("$.total", is("31.50")))
-                .andExpect(jsonPath("$.paymentReference").isNotEmpty());
+        var result=mvc.perform(post("/api/orders/confirm").contentType(MediaType.APPLICATION_JSON).content(request)).andReturn();
+        JsonNode response=objectMapper.readTree(result.getResponse().getContentAsString());
+        assertThat(result.getResponse().getStatus()).isEqualTo(201);
+        assertThat(response.path("status").asText()).isEqualTo("CONFIRMED");
+        assertThat(response.path("subtotal").asText()).isEqualTo("25.00");
+        assertThat(response.path("total").asText()).isEqualTo("31.50");
+        assertThat(response.path("paymentReference").asText()).isNotBlank();
 
-        org.junit.jupiter.api.Assertions.assertEquals(2, marketplace.product(new ProductId("P-1")).orElseThrow().reserved());
-        org.junit.jupiter.api.Assertions.assertEquals(1, marketplace.product(new ProductId("P-2")).orElseThrow().reserved());
-        org.junit.jupiter.api.Assertions.assertEquals(1, marketplace.allOrders().size());
+        assertThat(marketplace.product(new ProductId("P-1")).orElseThrow().reserved()).isEqualTo(2);
+        assertThat(marketplace.product(new ProductId("P-2")).orElseThrow().reserved()).isEqualTo(1);
+        assertThat(marketplace.allOrders()).hasSize(1);
     }
 }

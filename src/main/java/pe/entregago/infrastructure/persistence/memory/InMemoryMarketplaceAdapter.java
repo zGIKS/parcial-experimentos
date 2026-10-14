@@ -33,6 +33,11 @@ public class InMemoryMarketplaceAdapter implements MerchantRepository, CustomerA
         if (coupon == null) throw new IllegalStateException("coupon disappeared before redemption");
         coupon.recordUse();
     }
+    @Override public synchronized void undoUse(CouponCode code) {
+        Coupon coupon=coupons.get(code);
+        if (coupon == null) throw new IllegalStateException("coupon disappeared before compensation");
+        coupon.undoUse();
+    }
     @Override public synchronized StockReservation reserveAll(ReservationId id, List<RequestedItem> items, Instant at) {
         Map<ProductId,Integer> quantityByProduct=new LinkedHashMap<>();
         items.forEach(item -> quantityByProduct.merge(item.productId(), item.quantity().value(), Integer::sum));

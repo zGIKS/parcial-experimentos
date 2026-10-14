@@ -85,12 +85,18 @@ package "Order, pricing & payment" {
     -status: OrderStatus
     -createdAt: Instant
     -confirmedAt: Instant
+    -preparationStartedAt: Instant
+    -readyAt: Instant
     -payment: PaymentAuthorization
     -reservationId: ReservationId
+    -domainEvents: List<DomainEvent>
+    -substitutions: List<SubstitutionProposal>
     +confirm(payment, reservation, at): void
     +acceptByMerchant(): void
-    +startPreparation(): void
-    +markReadyForPickup(): void
+    +startPreparation(at): void
+    +markReadyForPickup(at): void
+    +proposeSubstitution(proposal): void
+    +approveSubstitution(original, replacement, customerId): void
     +cancel(policy, reason, at): RefundType
     +sendToReview(reason): void
   }
@@ -144,12 +150,62 @@ package "Order, pricing & payment" {
     -reference: String
     -approved: boolean
   }
+  class CouponDecision <<value object>> {
+    -discount: Money
+    -rejectionCode: String
+    +applied(): boolean
+  }
+  class SubstitutionProposal <<entity>> {
+    -originalProductId: ProductId
+    -replacementProductId: ProductId
+    -customerId: CustomerId
+    -status: ApprovalStatus
+    -proposedAt: Instant
+    +approve(customerId): void
+    +reject(customerId): void
+  }
+  class BusinessRuleViolation <<domain error>> {
+    -code: BusinessRuleCode
+    -message: String
+  }
+  interface DomainEvent {
+    +occurredAt(): Instant
+  }
+  class OrderConfirmed <<domain event>> {
+    -orderId: OrderId
+    -occurredAt: Instant
+  }
+  class OrderCancelled <<domain event>> {
+    -orderId: OrderId
+    -reason: String
+    -occurredAt: Instant
+  }
   interface PaymentGateway <<domain port>> {
     +authorize(methodId, amount, orderId): PaymentAuthorization
     +voidAuthorization(authorization): void
+    +refund(authorization, amount): void
   }
   interface OrderPricingPolicy <<domain service>> {
     +quote(merchantId, lines, coupon, date): PriceBreakdown
+  }
+  class StandardOrderPricingPolicy <<domain service implementation>> {
+    -shipping: Money
+    -taxRate: BigDecimal
+    +quote(merchantId, lines, coupon, date): PriceBreakdown
+    +shippingFor(merchantId): Money
+  }
+  interface MerchantAnalyticsService <<domain service>> {
+    +summarize(merchantId, from, to, orders): SalesReport
+  }
+  class StandardMerchantAnalyticsService <<domain service implementation>> {
+    +summarize(merchantId, from, to, orders): SalesReport
+  }
+  class SalesReport <<value object>> {
+    -from / to: LocalDate
+    -salesTotal: Money
+    -cancellations: int
+    -averagePreparationMinutes: BigDecimal
+    -mostRequestedProducts: Map<ProductId, Integer>
   }
 }
 
@@ -180,6 +236,7 @@ package "Shared language" {
   class OrderId <<value object>>
   class CouponCode <<value object>>
   class ReservationId <<value object>>
+  class CoverageZoneId <<value object>>
   class Quantity <<value object>> { -value: int }
   class Money <<value object>> {
     -amount: BigDecimal
@@ -188,7 +245,10 @@ package "Shared language" {
     +subtract(other): Money
     +multiply(factor): Money
   }
-  class GeoLocation <<value object>> { -latitude: double; -longitude: double }
+  class GeoLocation <<value object>> {
+    -latitude: double
+    -longitude: double
+  }
   class RequestedItem <<value object>> {
     -productId: ProductId
     -quantity: Quantity
@@ -205,9 +265,50 @@ package "Shared language" {
     REJECTED
     UNDER_REVIEW
   }
-  enum ReservationStatus { ACTIVE; RELEASED; COMMITTED }
-  enum DiscountType { PERCENTAGE; FIXED_AMOUNT }
-  enum RefundType { FULL; PARTIAL; NONE }
+  enum ReservationStatus {
+    ACTIVE
+    RELEASED
+    COMMITTED
+  }
+  enum DiscountType {
+    PERCENTAGE
+    FIXED_AMOUNT
+  }
+  enum PaymentStatus {
+    AUTHORIZED
+    REJECTED
+    VOIDED
+    REFUNDED
+    PARTIALLY_REFUNDED
+  }
+  enum ApprovalStatus {
+    PENDING
+    APPROVED
+    REJECTED
+  }
+  enum RefundType {
+    FULL
+    PARTIAL
+    NONE
+  }
+  enum BusinessRuleCode {
+    MERCHANT_NOT_FOUND
+    ADDRESS_NOT_FOUND
+    PRODUCT_NOT_FOUND
+    MERCHANT_CLOSED
+    ADDRESS_OUT_OF_COVERAGE
+    ADDRESS_NOT_OWNED
+    PRODUCT_UNAVAILABLE
+    PRODUCT_FROM_ANOTHER_MERCHANT
+    INSUFFICIENT_STOCK
+    PAYMENT_NOT_AUTHORIZED
+    INVALID_ORDER_TRANSITION
+    INVALID_DELIVERY_TRANSITION
+    RESERVATION_NOT_ACTIVE
+    DELIVERY_EVIDENCE_REQUIRED
+    INVALID_CANCELLATION
+    SUBSTITUTION_NOT_OWNED
+  }
 }
 
 Customer "1" *-- "0..*" CustomerAddress
@@ -224,8 +325,12 @@ Order "*" --> "1" CustomerId
 Order "*" --> "1" MerchantId
 Order "*" --> "1" AddressId
 Order "0..*" --> "0..1" Coupon
+Order "1" *-- "0..*" SubstitutionProposal
 Order "1" --> "1" StockReservation
 Order "1" *-- "1" PaymentAuthorization
+Order "1" o-- "0..*" DomainEvent
+OrderConfirmed ..|> DomainEvent
+OrderCancelled ..|> DomainEvent
 Order --> OrderStatus
 Coupon --> DiscountType
 StockReservation --> ReservationStatus
@@ -241,5 +346,10 @@ CouponRepository ..> Coupon
 StockReservationRepository ..> StockReservation
 OrderPricingPolicy ..> PriceBreakdown
 OrderPricingPolicy ..> Coupon
+StandardOrderPricingPolicy ..|> OrderPricingPolicy
+StandardMerchantAnalyticsService ..|> MerchantAnalyticsService
+MerchantAnalyticsService ..> SalesReport
+MerchantAnalyticsService ..> Order
 PaymentGateway ..> PaymentAuthorization
+BusinessRuleViolation --> BusinessRuleCode
 @enduml

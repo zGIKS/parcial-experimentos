@@ -72,16 +72,23 @@ public class ConfirmOrderCommandServiceImpl implements ConfirmOrderCommandServic
         ReservationId reservationId=new ReservationId(UUID.randomUUID().toString());
         StockReservation reservation=reservations.reserveAll(reservationId, command.items(), now);
         PaymentAuthorization authorization=null;
+        boolean couponUseRecorded=false;
         try {
             authorization=payments.authorize(command.paymentMethodId(), quote.total(), orderId);
             if (authorization == null || !authorization.approved())
                 throw new BusinessRuleViolation(BusinessRuleCode.PAYMENT_NOT_AUTHORIZED, "payment was not authorized");
             Order order=new Order(orderId, command.customerId(), merchant.id(), address.id(), lines, quote, now);
             order.confirm(authorization, reservation, now);
+            if (quote.appliedCouponCode() != null) {
+                coupons.recordUse(command.couponCode());
+                couponUseRecorded=true;
+            }
             orders.save(order);
-            if (quote.appliedCouponCode() != null) coupons.recordUse(command.couponCode());
             return new ConfirmOrderResult(orderId, order.status(), quote, lines, reservation.id(), authorization.reference());
         } catch (RuntimeException failure) {
+            if (couponUseRecorded) {
+                try { coupons.undoUse(command.couponCode()); } catch (RuntimeException compensationFailure) { failure.addSuppressed(compensationFailure); }
+            }
             if (authorization != null && authorization.approved()) {
                 try { payments.voidAuthorization(authorization); } catch (RuntimeException compensationFailure) { failure.addSuppressed(compensationFailure); }
             }

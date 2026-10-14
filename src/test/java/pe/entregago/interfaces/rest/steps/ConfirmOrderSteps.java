@@ -23,7 +23,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class ConfirmOrderSteps {
     private static final CustomerId CUSTOMER=new CustomerId("C-1");
@@ -89,7 +89,7 @@ public class ConfirmOrderSteps {
 
     @Given("the coupon condition is {string}")
     public void configureCoupon(String condition) {
-        LocalDate today=LocalDate.now();
+        LocalDate today=LocalDate.now(java.time.Clock.systemUTC());
         LocalDate from=today.minusDays(1), until=today.plusDays(1);
         Money minimum=Money.soles("10.00");
         MerchantId applicableMerchant=new MerchantId(merchantId);
@@ -120,27 +120,28 @@ public class ConfirmOrderSteps {
     }
 
     @Then("the API responds with HTTP {int}")
-    public void assertStatus(int expectedStatus) { assertEquals(expectedStatus, response.statusCode()); }
+    public void assertStatus(int expectedStatus) { assertThat(response.statusCode()).isEqualTo(expectedStatus); }
 
     @Then("the order is {string} with total {string}")
     public void assertConfirmedOrder(String expectedStatus, String expectedTotal) {
-        assertEquals(expectedStatus, response.jsonPath().getString("status"));
-        assertEquals(expectedTotal, response.jsonPath().getString("total"));
+        assertThat(response.jsonPath().getString("status")).isEqualTo(expectedStatus);
+        assertThat(response.jsonPath().getString("total")).isEqualTo(expectedTotal);
     }
 
     @Then("stock for {string} has {int} reserved units")
     public void assertReservedStock(String productId, int expectedReserved) {
-        assertEquals(expectedReserved, marketplace.product(new ProductId(productId)).orElseThrow().reserved());
+        assertThat(marketplace.product(new ProductId(productId)).orElseThrow().reserved()).isEqualTo(expectedReserved);
     }
 
     @Then("there are {int} saved orders")
-    public void assertSavedOrders(int count) { assertEquals(count, marketplace.allOrders().size()); }
+    public void assertSavedOrders(int count) { assertThat(marketplace.allOrders()).hasSize(count); }
 
     @Then("coupon discount is {string} and rejection reason is {string}")
     public void assertCouponDecision(String discount, String rejection) {
-        assertEquals(discount, response.jsonPath().getString("discount"));
+        assertThat(response.jsonPath().getString("discount")).isEqualTo(discount);
         String actualRejection=response.jsonPath().getString("couponRejectionReason");
-        assertEquals(rejection.equals("NONE") ? null : rejection, actualRejection);
+        if (rejection.equals("NONE")) assertThat(actualRejection).isNull();
+        else assertThat(actualRejection).isEqualTo(rejection);
     }
 
     private static Map<String,Object> item(String productId, int quantity, String observations) {

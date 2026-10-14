@@ -15,7 +15,9 @@ package "pe.entregago.infrastructure.persistence.memory" {
     -orders: Map<OrderId, Order>
     -couriers: Map<CourierId, Courier>
     -deliveries: Map<DeliveryId, Delivery>
-    +findById(id): Optional<T>
+    +findById(merchantId): Optional<Merchant>
+    +findById(addressId): Optional<CustomerAddress>
+    +findById(productId): Optional<Product>
     +reserveAll(id, items, at): StockReservation
     +release(id): void
     +commit(id): void
@@ -28,6 +30,7 @@ package "pe.entregago.infrastructure.payment" {
     -voidCount: AtomicInteger
     +authorize(methodId, amount, orderId): PaymentAuthorization
     +voidAuthorization(authorization): void
+    +refund(authorization, amount): void
   }
 }
 package "pe.entregago.infrastructure" {
@@ -45,7 +48,10 @@ interface OrderRepository
 interface CourierRepository
 interface DeliveryRepository
 interface PaymentGateway
-class StandardOrderPricingPolicy
+interface OrderPricingPolicy
+package "pe.entregago.domain.services" {
+  class StandardOrderPricingPolicy
+}
 InMemoryMarketplaceAdapter ..|> MerchantRepository
 InMemoryMarketplaceAdapter ..|> CustomerAddressRepository
 InMemoryMarketplaceAdapter ..|> ProductRepository
@@ -55,5 +61,5 @@ InMemoryMarketplaceAdapter ..|> OrderRepository
 InMemoryMarketplaceAdapter ..|> CourierRepository
 InMemoryMarketplaceAdapter ..|> DeliveryRepository
 InMemoryPaymentGateway ..|> PaymentGateway
-MarketplaceConfiguration ..> StandardOrderPricingPolicy : creates
+MarketplaceConfiguration ..> StandardOrderPricingPolicy : configures
 @enduml

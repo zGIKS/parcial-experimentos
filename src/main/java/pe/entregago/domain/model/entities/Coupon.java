@@ -37,6 +37,7 @@ public final class Coupon {
         return new CouponDecision(discount.min(maximumDiscount).min(subtotal), null);
     }
     public void recordUse() { if (uses >= maximumUses) throw new IllegalStateException("coupon usage limit reached"); uses++; }
+    public void undoUse() { if (uses == 0) throw new IllegalStateException("coupon has no use to undo"); uses--; }
     public CouponCode code() { return code; }
     public int uses() { return uses; }
 }
